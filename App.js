@@ -1,34 +1,116 @@
-import React from 'react';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
-import { Font } from 'expo';
-import Text from './components/CustomText';
-export default class App extends React.Component {
-  constructor() {
-    super();
-    this.state = {
-      fontLoaded: false
-    };
+import React, { Component } from 'react';
+import {
+  Platform,
+  Text,
+  View,
+  StyleSheet,
+  Button,
+  Linking,
+  AppState
+} from 'react-native';
+import { Constants, Location, Permissions, IntentLauncherAndroid } from 'expo';
+import Modal from 'react-native-modal';
+export default class App extends Component {
+  state = {
+    location: null,
+    errorMessage: null,
+    isLocationModalVisible: false,
+    appState: AppState.currentState
+  };
+
+  componentWillUnmount() {
+    AppState.removeEventListener('change', this.handleAppStateChange);
   }
 
-  async componentDidMount() {
-    await Font.loadAsync({
-      'Raleway-Black': require('./assets/fonts/Raleway-Black.ttf'),
-      'Raleway-Bold': require('./assets/fonts/Raleway-Bold.ttf'),
-      'Raleway-SemiBold': require('./assets/fonts/Raleway-SemiBold.ttf'),
-      'Raleway-Medium': require('./assets/fonts/Raleway-Medium.ttf'),
-      'Raleway-Regular': require('./assets/fonts/Raleway-Regular.ttf')
-    });
+  handleAppStateChange = nextAppState => {
+    if (
+      this.state.appState.match(/inactive|background/) &&
+      nextAppState === 'active'
+    ) {
+      console.log('App has come to the foreground!');
+      this._getLocationAsync();
+    }
+    this.setState({ appState: nextAppState });
+  };
 
-    this.setState({ fontLoaded: true });
+  componentWillMount() {
+    AppState.addEventListener('change', this.handleAppStateChange);
+    if (Platform.OS === 'android' && !Constants.isDevice) {
+      this.setState({
+        errorMessage:
+          'Oops, this will not work on Sketch in an Android emulator. Try it on your device!'
+      });
+    } else {
+      this._getLocationAsync();
+    }
   }
+
+  _getLocationAsync = async () => {
+    try {
+      let { status } = await Permissions.askAsync(Permissions.LOCATION);
+      if (status !== 'granted') {
+        this.setState({
+          errorMessage: 'Permission to access location was denied'
+        });
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      this.setState({ location });
+    } catch (error) {
+      let status = Location.getProviderStatusAsync();
+      if (!status.locationServicesEnabled) {
+        this.setState({ isLocationModalVisible: true });
+      }
+    }
+  };
+
+  openSetting = () => {
+    if (Platform.OS == 'ios') {
+      Linking.openURL('app-settings:');
+    } else {
+      IntentLauncherAndroid.startActivityAsync(
+        IntentLauncherAndroid.ACTION_LOCATION_SOURCE_SETTINGS
+      );
+    }
+    this.setState({ openSetting: false });
+  };
+
   render() {
+    let text = 'Waiting..';
+    if (this.state.errorMessage) {
+      text = this.state.errorMessage;
+    } else if (this.state.location) {
+      text = JSON.stringify(this.state.location);
+    }
+
     return (
       <View style={styles.container}>
-        {this.state.fontLoaded ? (
-          <Text type="bold">Open up App.js to start working on your app!</Text>
-        ) : (
-          <ActivityIndicator size="large" />
-        )}
+        <Modal
+          onModalHide={this.state.openSetting ? this.openSetting : undefined}
+          isVisible={this.state.isLocationModalVisible}
+        >
+          <View
+            style={{
+              height: 300,
+              width: 300,
+              backgroundColor: 'white',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Button
+              onPress={() =>
+                this.setState({
+                  isLocationModalVisible: false,
+                  openSetting: true
+                })
+              }
+              title="Enable Location Services"
+            />
+          </View>
+        </Modal>
+        <Text style={styles.paragraph}>{text}</Text>
       </View>
     );
   }
@@ -37,8 +119,14 @@ export default class App extends React.Component {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    paddingTop: Constants.statusBarHeight,
+    backgroundColor: '#ecf0f1'
+  },
+  paragraph: {
+    margin: 24,
+    fontSize: 18,
+    textAlign: 'center'
   }
 });
