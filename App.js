@@ -1,38 +1,28 @@
 import React from 'react';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
-import { Font } from 'expo';
-import Text from './components/CustomText';
+import { StyleSheet, Text, View } from 'react-native';
+import { createAppContainer, createSwitchNavigator } from 'react-navigation';
+
+import LoginScreen from './screens/LoginScreen';
+import DashboardScreen from './screens/DashboardScreen';
+import LoadingScreen from './screens/LoadingScreen';
+
+import * as firebase from 'firebase';
+import { firebaseConfig } from './config';
+firebase.initializeApp(firebaseConfig);
+
 export default class App extends React.Component {
-  constructor() {
-    super();
-    this.state = {
-      fontLoaded: false
-    };
-  }
-
-  async componentDidMount() {
-    await Font.loadAsync({
-      'Raleway-Black': require('./assets/fonts/Raleway-Black.ttf'),
-      'Raleway-Bold': require('./assets/fonts/Raleway-Bold.ttf'),
-      'Raleway-SemiBold': require('./assets/fonts/Raleway-SemiBold.ttf'),
-      'Raleway-Medium': require('./assets/fonts/Raleway-Medium.ttf'),
-      'Raleway-Regular': require('./assets/fonts/Raleway-Regular.ttf')
-    });
-
-    this.setState({ fontLoaded: true });
-  }
   render() {
-    return (
-      <View style={styles.container}>
-        {this.state.fontLoaded ? (
-          <Text type="bold">Open up App.js to start working on your app!</Text>
-        ) : (
-          <ActivityIndicator size="large" />
-        )}
-      </View>
-    );
+    return <AppNavigator />;
   }
 }
+
+const AppSwitchNavigator = createSwitchNavigator({
+  LoadingScreen: LoadingScreen,
+  LoginScreen: LoginScreen,
+  DashboardScreen: DashboardScreen
+});
+
+const AppNavigator = createAppContainer(AppSwitchNavigator);
 
 const styles = StyleSheet.create({
   container: {
